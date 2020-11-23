@@ -145,6 +145,7 @@ class ParallelLoggingManager:
     >>> logging_manager.critical('critical message', real_time=True)
     >>> logging_manager.success('success message', real_time=True)
     """
+
     def __init__(self, log_file_name):
         """
         Initializes the logging manager:
@@ -171,11 +172,18 @@ class ParallelLoggingManager:
         self.real_time_logger = logging.getLogger(f'real_time-{log_file_path}')
         self.real_time_logger.addHandler(self.file_handler)
         self.real_time_logger.addHandler(self.console_handler)
+        self.remove_default_handler_from_real_time_logger()
         self.real_time_logger.setLevel(logging.DEBUG)
         self.loggers = {}
         self.listeners = {}
         self.logs_lock = Lock()
         self.thread_names = set()
+        print(f'real_time_logger handlers: {self.real_time_logger.handlers}')
+
+    def remove_default_handler_from_real_time_logger(self):
+        for handler in self.real_time_logger.handlers:
+            if handler not in (self.file_handler, self.console_handler):
+                self.real_time_logger.removeHandler(handler)
 
     def _add_logger(self, thread_name: str):
         """
@@ -191,10 +199,14 @@ class ParallelLoggingManager:
         logger = logging.getLogger(thread_name)
         logger.setLevel(logging.DEBUG)
         logger.addHandler(queue_handler)
+        for handler in logger.handlers:
+            if handler != queue_handler:
+                logger.removeHandler(handler)
         listener = QueueListener(log_queue, self.console_handler, self.file_handler, respect_handler_level=True)
         self.loggers[thread_name] = logger
         self.listeners[thread_name] = listener
         self.thread_names.add(thread_name)
+        print(f'logger handlers: {logger.handlers}')
 
     def debug(self, message: str, real_time: bool = False) -> None:
         """
